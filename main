@@ -1,0 +1,43 @@
+import cv2
+import torch
+from gtts import gTTS
+from playsound import playsound
+import os
+import time
+
+# Load YOLOv5 model
+model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
+
+cap = cv2.VideoCapture(0)
+seen_objects = set()
+last_spoken = time.time()
+
+def speak(text):
+    tts = gTTS(text)
+    tts.save("temp.mp3")
+    playsound("temp.mp3")
+    os.remove("temp.mp3")
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    results = model(frame)
+    labels = results.xyxyn[0][:, -1].numpy()
+    names = results.names
+    detected = set(names[int(i)] for i in labels)
+
+    for obj in detected:
+        if obj not in seen_objects and time.time() - last_spoken > 3:
+            print(f"Detected: {obj}")
+            speak(f"{obj} ahead")
+            seen_objects.add(obj)
+            last_spoken = time.time()
+
+    cv2.imshow("SeeSay - Press q to exit", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
